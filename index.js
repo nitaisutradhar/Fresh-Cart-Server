@@ -10,8 +10,11 @@ const port = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
+// MongoDB URI from environment variables
+const MONGODB_URI = process.env.MONGODB_URI;
+
 // MongoDB connection
-const client = new MongoClient(process.env.MONGODB_URI, {
+const client = new MongoClient(MONGODB_URI, {
   serverApi: {
     version: ServerApiVersion.v1,
     strict: true,
@@ -21,18 +24,42 @@ const client = new MongoClient(process.env.MONGODB_URI, {
 
 async function run() {
   try {
-    const db = client.db("freshCart")
+    // Connect the client to the server	(optional starting in v4.7)
+    await client.connect();
+    // Send a ping to confirm a successful connection
+   // await client.db("admin").command({ ping: 1 });
+    //console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+    const db = client.db("FreshCartDB")
     const usersCollection = db.collection("users")
 
-    // Test route
-    app.get("/products", async (req, res) => {
-      const products = await productsCollection.find().toArray()
-      res.send(products)
+   // save or update a users info in db
+    app.post('/user', async (req, res) => {
+      const userData = req.body
+      userData.role = 'user' // default role is user
+      userData.created_at = new Date().toISOString()
+      userData.last_loggedIn = new Date().toISOString()
+      const query = {
+        email: userData?.email,
+      }
+      const alreadyExists = await usersCollection.findOne(query)
+      console.log('User already exists: ', !!alreadyExists)
+      if (!!alreadyExists) {
+        console.log('Updating user data......')
+        const result = await usersCollection.updateOne(query, {
+          $set: { last_loggedIn: new Date().toISOString() },
+        })
+        return res.send(result)
+      }
+
+      console.log('Creating user data......')
+      // return console.log(userData)
+      const result = await usersCollection.insertOne(userData)
+      res.send(result)
     })
 
-    console.log("✅ MongoDB Connected")
   } catch (err) {
-    console.error(err)
+    console.error(err);
   }
 }
 
