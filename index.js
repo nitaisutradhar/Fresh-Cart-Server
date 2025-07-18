@@ -58,6 +58,14 @@ async function run() {
       res.send(result)
     })
 
+     // get a user's role
+    app.get('/user/role/:email', async (req, res) => {
+      const email = req.params.email
+      const result = await usersCollection.findOne({ email })
+      if (!result) return res.status(404).send({ message: 'User Not Found.' })
+      res.send({ role: result?.role })
+    })
+
   } catch (err) {
     console.error(err);
   }
