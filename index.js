@@ -25,13 +25,14 @@ const client = new MongoClient(MONGODB_URI, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    //await client.connect();
     // Send a ping to confirm a successful connection
    // await client.db("admin").command({ ping: 1 });
     //console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
     const db = client.db("FreshCartDB")
     const usersCollection = db.collection("users")
+    const productCollection = db.collection("products")
 
    // save or update a users info in db
     app.post('/user', async (req, res) => {
@@ -66,10 +67,22 @@ async function run() {
       res.send({ role: result?.role })
     })
 
+    
+// Vendor Related Endpoints
+
+  // Save product in db
+  app.post("/products", async (req, res) => {
+    const product = req.body;
+    const result = await productCollection.insertOne(product);
+    res.send(result);
+  });
+
   } catch (err) {
     console.error(err);
   }
 }
+
+
 
 run().catch(console.dir);
 
