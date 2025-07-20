@@ -2,6 +2,7 @@ const express = require("express")
 const cors = require("cors")
 const { MongoClient, ServerApiVersion } = require("mongodb")
 require("dotenv").config()
+const jwt = require("jsonwebtoken");
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -34,6 +35,33 @@ async function run() {
     const usersCollection = db.collection("users")
     const productCollection = db.collection("products")
 
+    // 🚀 JWT Generate Route
+    app.post('/jwt', async (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.JWT_SECRET_KEY, {
+        expiresIn: "7d",
+      });
+      res.send({ token, message: 'JWT Created Successfully!' });
+    });
+
+    const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
+
+
    // save or update a users info in db
     app.post('/user', async (req, res) => {
       const userData = req.body
@@ -60,7 +88,7 @@ async function run() {
     })
 
      // get a user's role
-    app.get('/user/role/:email', async (req, res) => {
+    app.get('/user/role/:email', verifyToken, async (req, res) => {
       const email = req.params.email
       const result = await usersCollection.findOne({ email })
       if (!result) return res.status(404).send({ message: 'User Not Found.' })
