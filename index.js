@@ -1,15 +1,15 @@
-const express = require("express")
-const cors = require("cors")
-const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb")
-require("dotenv").config()
+const express = require("express");
+const cors = require("cors");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
-const app = express()
-const port = process.env.PORT || 3000
+const app = express();
+const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
 // MongoDB URI from environment variables
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -37,146 +37,160 @@ const client = new MongoClient(MONGODB_URI, {
     strict: true,
     deprecationErrors: true,
   },
-})
+});
 
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
     //await client.connect();
     // Send a ping to confirm a successful connection
-   // await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     //console.log("Pinged your deployment. You successfully connected to MongoDB!");
 
-    const db = client.db("FreshCartDB")
-    const usersCollection = db.collection("users")
-    const productCollection = db.collection("products")
+    const db = client.db("FreshCartDB");
+    const usersCollection = db.collection("users");
+    const productCollection = db.collection("products");
+    const advertisementCollection = db.collection("advertisements");
 
     const verifyVendor = async (req, res, next) => {
-      const email = req?.user?.email
+      const email = req?.user?.email;
       const user = await usersCollection.findOne({
         email,
-      })
+      });
       //console.log(user?.role)
-      if (!user || user?.role !== 'vendor')
+      if (!user || user?.role !== "vendor")
         return res
           .status(403)
-          .send({ message: 'Vendor only Actions!', role: user?.role })
+          .send({ message: "Vendor only Actions!", role: user?.role });
 
-      next()
-    }
+      next();
+    };
 
     // 🚀 JWT Generate Route
-    app.post('/jwt', async (req, res) => {
+    app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.JWT_SECRET_KEY, {
         expiresIn: "7d",
       });
-      res.send({ token, message: 'JWT Created Successfully!' });
+      res.send({ token, message: "JWT Created Successfully!" });
     });
 
-
-
-
-
-   // save or update a users info in db
-    app.post('/user', async (req, res) => {
-      const userData = req.body
-      userData.role = 'user' // default role is user
-      userData.created_at = new Date().toISOString()
-      userData.last_loggedIn = new Date().toISOString()
+    // save or update a users info in db
+    app.post("/user", async (req, res) => {
+      const userData = req.body;
+      userData.role = "user"; // default role is user
+      userData.created_at = new Date().toISOString();
+      userData.last_loggedIn = new Date().toISOString();
       const query = {
         email: userData?.email,
-      }
-      const alreadyExists = await usersCollection.findOne(query)
-      console.log('User already exists: ', !!alreadyExists)
+      };
+      const alreadyExists = await usersCollection.findOne(query);
+      console.log("User already exists: ", !!alreadyExists);
       if (!!alreadyExists) {
-        console.log('Updating user data......')
+        console.log("Updating user data......");
         const result = await usersCollection.updateOne(query, {
           $set: { last_loggedIn: new Date().toISOString() },
-        })
-        return res.send(result)
+        });
+        return res.send(result);
       }
 
-      console.log('Creating user data......')
+      console.log("Creating user data......");
       // return console.log(userData)
-      const result = await usersCollection.insertOne(userData)
-      res.send(result)
-    })
+      const result = await usersCollection.insertOne(userData);
+      res.send(result);
+    });
 
-     // get a user's role
-    app.get('/user/role/:email', verifyToken, async (req, res) => {
-      const email = req.params.email
-      const result = await usersCollection.findOne({ email })
-      if (!result) return res.status(404).send({ message: 'User Not Found.' })
-      res.send({ role: result?.role })
-    })
+    // get a user's role
+    app.get("/user/role/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      const result = await usersCollection.findOne({ email });
+      if (!result) return res.status(404).send({ message: "User Not Found." });
+      res.send({ role: result?.role });
+    });
 
-    
-// Vendor Related Endpoints
+    // Vendor Related Endpoints
 
-  // Save product in db
-  app.post("/products", async (req, res) => {
-    const product = req.body;
-    const result = await productCollection.insertOne(product);
-    res.send(result);
-  });
+    // Save product in db
+    app.post("/products", async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.send(result);
+    });
 
-  // Get vendor-specific products
-  app.get("/products", verifyToken,verifyVendor, async (req, res) => {
-    const email = req.query.vendorEmail;
-    const result = await productCollection.find({ email: email }).toArray();
-    res.send(result);
-  });
+    // Get vendor-specific products
+    app.get("/products", verifyToken, verifyVendor, async (req, res) => {
+      const email = req.query.vendorEmail;
+      const result = await productCollection.find({ email: email }).toArray();
+      res.send(result);
+    });
 
-  // get product by id
-  app.get('/products/:id', verifyToken, verifyVendor, async (req, res)=> {
-    const id = req.params.id;
-    const result = await productCollection.findOne({ _id : new ObjectId(id)})
-    res.send(result)
-  })
+    // get product by id
+    app.get("/products/:id", verifyToken, verifyVendor, async (req, res) => {
+      const id = req.params.id;
+      const result = await productCollection.findOne({ _id: new ObjectId(id) });
+      res.send(result);
+    });
 
-  // PATCH route to update a product by ID
-  app.put("/products/:id", verifyToken, verifyVendor, async (req, res) => {
-  const id = req.params.id;
-  const updatedProduct = req.body;
+    // PATCH route to update a product by ID
+    app.put("/products/:id", verifyToken, verifyVendor, async (req, res) => {
+      const id = req.params.id;
+      const updatedProduct = req.body;
 
-  // ❌ Remove _id if it exists in the payload
-  if (updatedProduct._id) {
-    delete updatedProduct._id;
-  }
+      // ❌ Remove _id if it exists in the payload
+      if (updatedProduct._id) {
+        delete updatedProduct._id;
+      }
 
-  const filter = { _id: new ObjectId(id) };
-  const updateDoc = {
-    $set: updatedProduct,
-  };
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updatedProduct,
+      };
 
-  const result = await productCollection.updateOne(filter, updateDoc);
-  res.send(result);
-});
+      const result = await productCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    });
+    // Delete a product
+    app.delete("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await productCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
+    // Advertisement related api
 
+    // Vendor - Add Advertisement
+    app.post("/advertisements", verifyToken, verifyVendor, async (req, res) => {
+      try {
+        const ad = req.body;
 
-  // Delete a product
-  app.delete("/products/:id", async (req, res) => {
-    const id = req.params.id;
-    const result = await productCollection.deleteOne({ _id: new ObjectId(id) });
-    res.send(result);
-  });
+        // Optional validation (you can expand)
+        if (!ad?.title || !ad?.description || !ad?.image) {
+          return res.status(400).send({ message: "Missing fields" });
+        }
 
+        ad.status = "pending";
+        ad.created_at = new Date().toISOString();
 
+        const result = await advertisementCollection.insertOne(ad);
+        res.send(result);
+      } catch (err) {
+        console.error("Error saving advertisement:", err.message);
+        res.status(500).send({ message: "Failed to save advertisement" });
+      }
+    });
   } catch (err) {
     console.error(err);
   }
 }
 
-
-
 run().catch(console.dir);
 
 app.get("/", (req, res) => {
-  res.send("FreshCart server is running 🥦")
-})
+  res.send("FreshCart server is running 🥦");
+});
 
 app.listen(port, () => {
-  console.log(`Server listening on http://localhost:${port}`)
-})
+  console.log(`Server listening on http://localhost:${port}`);
+});
