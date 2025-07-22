@@ -56,7 +56,7 @@ async function run() {
       const user = await usersCollection.findOne({
         email,
       })
-      console.log(user?.role)
+      //console.log(user?.role)
       if (!user || user?.role !== 'vendor')
         return res
           .status(403)
@@ -128,10 +128,37 @@ async function run() {
     res.send(result);
   });
 
+  // get product by id
+  app.get('/products/:id', verifyToken, verifyVendor, async (req, res)=> {
+    const id = req.params.id;
+    const result = await productCollection.findOne({ _id : new ObjectId(id)})
+    res.send(result)
+  })
+
+  // PATCH route to update a product by ID
+  app.put("/products/:id", verifyToken, verifyVendor, async (req, res) => {
+  const id = req.params.id;
+  const updatedProduct = req.body;
+
+  // ❌ Remove _id if it exists in the payload
+  if (updatedProduct._id) {
+    delete updatedProduct._id;
+  }
+
+  const filter = { _id: new ObjectId(id) };
+  const updateDoc = {
+    $set: updatedProduct,
+  };
+
+  const result = await productCollection.updateOne(filter, updateDoc);
+  res.send(result);
+});
+
+
+
   // Delete a product
   app.delete("/products/:id", async (req, res) => {
     const id = req.params.id;
-    console.log(id)
     const result = await productCollection.deleteOne({ _id: new ObjectId(id) });
     res.send(result);
   });
