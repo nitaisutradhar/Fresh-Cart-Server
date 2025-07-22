@@ -1,6 +1,6 @@
 const express = require("express")
 const cors = require("cors")
-const { MongoClient, ServerApiVersion } = require("mongodb")
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb")
 require("dotenv").config()
 const jwt = require("jsonwebtoken");
 
@@ -13,6 +13,22 @@ app.use(express.json())
 
 // MongoDB URI from environment variables
 const MONGODB_URI = process.env.MONGODB_URI;
+
+const verifyToken = (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
 
 // MongoDB connection
 const client = new MongoClient(MONGODB_URI, {
@@ -35,6 +51,20 @@ async function run() {
     const usersCollection = db.collection("users")
     const productCollection = db.collection("products")
 
+    const verifyVendor = async (req, res, next) => {
+      const email = req?.user?.email
+      const user = await usersCollection.findOne({
+        email,
+      })
+      console.log(user?.role)
+      if (!user || user?.role !== 'vendor')
+        return res
+          .status(403)
+          .send({ message: 'Vendor only Actions!', role: user?.role })
+
+      next()
+    }
+
     // 🚀 JWT Generate Route
     app.post('/jwt', async (req, res) => {
       const user = req.body;
@@ -44,21 +74,7 @@ async function run() {
       res.send({ token, message: 'JWT Created Successfully!' });
     });
 
-    const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(" ")[1];
 
-  if (!token) {
-    return res.status(401).send({ message: "Unauthorized" });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.status(403).send({ message: "Forbidden" });
-    }
-    req.user = decoded;
-    next();
-  });
-};
 
 
 
@@ -104,6 +120,22 @@ async function run() {
     const result = await productCollection.insertOne(product);
     res.send(result);
   });
+
+  // Get vendor-specific products
+  app.get("/products", verifyToken,verifyVendor, async (req, res) => {
+    const email = req.query.vendorEmail;
+    const result = await productCollection.find({ email: email }).toArray();
+    res.send(result);
+  });
+
+  // Delete a product
+  app.delete("/products/:id", async (req, res) => {
+    const id = req.params.id;
+    console.log(id)
+    const result = await productCollection.deleteOne({ _id: new ObjectId(id) });
+    res.send(result);
+  });
+
 
   } catch (err) {
     console.error(err);
