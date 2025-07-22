@@ -180,6 +180,32 @@ async function run() {
         res.status(500).send({ message: "Failed to save advertisement" });
       }
     });
+
+    // Get All Ads for a Vendor
+    app.get("/advertisements/:email", verifyToken, verifyVendor, async (req, res) => {
+      const email = req.params.email
+      const ads = await advertisementCollection.find({ vendorEmail: email }).toArray()
+      res.send(ads)
+    })
+    // Update Advertisement
+    app.patch("/advertisements/:id",verifyToken,verifyVendor, async (req, res) => {
+      const id = req.params.id
+      const updatedData = req.body
+      const result = await advertisementCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: updatedData }
+      )
+      res.send(result)
+    })
+
+    // Delete Advertisement
+    app.delete("/advertisements/:id", verifyToken, verifyVendor, async (req, res) => {
+      const id = req.params.id
+      const result = await advertisementCollection.deleteOne({ _id: new ObjectId(id) })
+      res.send(result)
+    })
+
+    // end
   } catch (err) {
     console.error(err);
   }
