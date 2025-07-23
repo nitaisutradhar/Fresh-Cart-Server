@@ -200,6 +200,12 @@ async function run() {
 
     // Advertisement related api
 
+    // Get all advertisements
+    app.get('/all-advertisements', async(req, res)=> {
+      const result = await advertisementCollection.find().toArray()
+      res.send(result)
+    })
+    
     // Vendor - Add Advertisement
     app.post("/advertisements", verifyToken, verifyVendor, async (req, res) => {
       try {
