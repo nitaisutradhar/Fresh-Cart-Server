@@ -52,6 +52,20 @@ async function run() {
     const productCollection = db.collection("products");
     const advertisementCollection = db.collection("advertisements");
 
+    const verifyAdmin = async (req, res, next) => {
+      const email = req?.user?.email
+      const user = await usersCollection.findOne({
+        email,
+      })
+      console.log(user?.role)
+      if (!user || user?.role !== 'admin')
+        return res
+          .status(403)
+          .send({ message: 'Admin only Actions!', role: user?.role })
+
+      next()
+    }
+
     const verifyVendor = async (req, res, next) => {
       const email = req?.user?.email;
       const user = await usersCollection.findOne({
@@ -106,6 +120,23 @@ async function run() {
       const result = await usersCollection.findOne({ email });
       if (!result) return res.status(404).send({ message: "User Not Found." });
       res.send({ role: result?.role });
+    });
+
+    // get all users
+    app.get("/users", verifyToken , verifyAdmin, async (req, res) => {
+      const users = await usersCollection.find().toArray();
+      res.send(users);
+    });
+
+    // Update User Role
+    app.patch("/users/:id/role", async (req, res) => {
+      const { id } = req.params;
+      const { role } = req.body;
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { role } }
+      );
+      res.send(result);
     });
 
     // Vendor Related Endpoints
@@ -201,11 +232,11 @@ async function run() {
     // Advertisement related api
 
     // Get all advertisements
-    app.get('/all-advertisements', async(req, res)=> {
-      const result = await advertisementCollection.find().toArray()
-      res.send(result)
-    })
-    
+    app.get("/all-advertisements", async (req, res) => {
+      const result = await advertisementCollection.find().toArray();
+      res.send(result);
+    });
+
     // Vendor - Add Advertisement
     app.post("/advertisements", verifyToken, verifyVendor, async (req, res) => {
       try {
