@@ -158,6 +158,46 @@ async function run() {
       res.send(result);
     });
 
+    // GET /products/public
+    app.get("/all-products", async (req, res) => {
+      const { sort, startDate, endDate } = req.query;
+      const query = {};
+
+      // ✅ Proper Date filtering
+      if (startDate && endDate) {
+        query.date = {
+          $gte: new Date(startDate).toISOString(),
+          $lte: new Date(endDate).toISOString(),
+        };
+      }
+
+      // ✅ Sorting logic (convert price to number)
+      const sortStage =
+        sort === "lowToHigh"
+          ? { $sort: { convertedPrice: 1 } }
+          : sort === "highToLow"
+          ? { $sort: { convertedPrice: -1 } }
+          : { $sort: { date: -1 } }; // default latest
+
+      const pipeline = [
+        { $match: query },
+        {
+          $addFields: {
+            convertedPrice: { $toDouble: "$price" },
+          },
+        },
+        sortStage,
+        {
+          $project: {
+            convertedPrice: 0,
+          },
+        },
+      ];
+
+      const products = await productCollection.aggregate(pipeline).toArray();
+      res.send(products);
+    });
+
     // Advertisement related api
 
     // Vendor - Add Advertisement
@@ -182,28 +222,47 @@ async function run() {
     });
 
     // Get All Ads for a Vendor
-    app.get("/advertisements/:email", verifyToken, verifyVendor, async (req, res) => {
-      const email = req.params.email
-      const ads = await advertisementCollection.find({ vendorEmail: email }).toArray()
-      res.send(ads)
-    })
+    app.get(
+      "/advertisements/:email",
+      verifyToken,
+      verifyVendor,
+      async (req, res) => {
+        const email = req.params.email;
+        const ads = await advertisementCollection
+          .find({ vendorEmail: email })
+          .toArray();
+        res.send(ads);
+      }
+    );
     // Update Advertisement
-    app.patch("/advertisements/:id",verifyToken,verifyVendor, async (req, res) => {
-      const id = req.params.id
-      const updatedData = req.body
-      const result = await advertisementCollection.updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updatedData }
-      )
-      res.send(result)
-    })
+    app.patch(
+      "/advertisements/:id",
+      verifyToken,
+      verifyVendor,
+      async (req, res) => {
+        const id = req.params.id;
+        const updatedData = req.body;
+        const result = await advertisementCollection.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: updatedData }
+        );
+        res.send(result);
+      }
+    );
 
     // Delete Advertisement
-    app.delete("/advertisements/:id", verifyToken, verifyVendor, async (req, res) => {
-      const id = req.params.id
-      const result = await advertisementCollection.deleteOne({ _id: new ObjectId(id) })
-      res.send(result)
-    })
+    app.delete(
+      "/advertisements/:id",
+      verifyToken,
+      verifyVendor,
+      async (req, res) => {
+        const id = req.params.id;
+        const result = await advertisementCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+        res.send(result);
+      }
+    );
 
     // end
   } catch (err) {
