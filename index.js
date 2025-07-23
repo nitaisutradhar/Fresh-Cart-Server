@@ -156,14 +156,14 @@ async function run() {
     });
 
     // get product by id
-    app.get("/products/:id", verifyToken, verifyVendor, async (req, res) => {
+    app.get("/products/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const result = await productCollection.findOne({ _id: new ObjectId(id) });
       res.send(result);
     });
 
     // PATCH route to update a product by ID
-    app.put("/products/:id", verifyToken, verifyVendor, async (req, res) => {
+    app.put("/products/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
       const updatedProduct = req.body;
 
@@ -228,6 +228,45 @@ async function run() {
       const products = await productCollection.aggregate(pipeline).toArray();
       res.send(products);
     });
+
+    // Products by admin
+
+    // ✅ Get all products
+app.get("/all-products", async (req, res) => {
+  const products = await productCollection.find().toArray();
+  res.send(products);
+});
+
+// ✅ Approve a product
+app.patch("/products/approve/:id", async (req, res) => {
+  const id = req.params.id;
+  const result = await productCollection.updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        status: "approved",
+        rejectionFeedback: "", // clear rejection if previously rejected
+      },
+    }
+  );
+  res.send(result);
+});
+
+// ✅ Reject a product with feedback
+app.patch("/products/reject/:id", verifyToken, async (req, res) => {
+  const id = req.params.id;
+  const { rejectionFeedback } = req.body;
+  const result = await productCollection.updateOne(
+    { _id: new ObjectId(id) },
+    {
+      $set: {
+        status: "rejected",
+        rejectionFeedback,
+      },
+    }
+  );
+  res.send(result);
+});
 
     // Advertisement related api
 
