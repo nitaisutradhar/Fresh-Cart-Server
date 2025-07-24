@@ -53,18 +53,18 @@ async function run() {
     const advertisementCollection = db.collection("advertisements");
 
     const verifyAdmin = async (req, res, next) => {
-      const email = req?.user?.email
+      const email = req?.user?.email;
       const user = await usersCollection.findOne({
         email,
-      })
-      console.log(user?.role)
-      if (!user || user?.role !== 'admin')
+      });
+      console.log(user?.role);
+      if (!user || user?.role !== "admin")
         return res
           .status(403)
-          .send({ message: 'Admin only Actions!', role: user?.role })
+          .send({ message: "Admin only Actions!", role: user?.role });
 
-      next()
-    }
+      next();
+    };
 
     const verifyVendor = async (req, res, next) => {
       const email = req?.user?.email;
@@ -123,7 +123,7 @@ async function run() {
     });
 
     // get all users
-    app.get("/users", verifyToken , verifyAdmin, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const users = await usersCollection.find().toArray();
       res.send(users);
     });
@@ -232,41 +232,41 @@ async function run() {
     // Products by admin
 
     // ✅ Get all products
-app.get("/all-products", async (req, res) => {
-  const products = await productCollection.find().toArray();
-  res.send(products);
-});
+    app.get("/all-products", async (req, res) => {
+      const products = await productCollection.find().toArray();
+      res.send(products);
+    });
 
-// ✅ Approve a product
-app.patch("/products/approve/:id", async (req, res) => {
-  const id = req.params.id;
-  const result = await productCollection.updateOne(
-    { _id: new ObjectId(id) },
-    {
-      $set: {
-        status: "approved",
-        rejectionFeedback: "", // clear rejection if previously rejected
-      },
-    }
-  );
-  res.send(result);
-});
+    // ✅ Approve a product
+    app.patch("/products/approve/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await productCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status: "approved",
+            rejectionFeedback: "", // clear rejection if previously rejected
+          },
+        }
+      );
+      res.send(result);
+    });
 
-// ✅ Reject a product with feedback
-app.patch("/products/reject/:id", verifyToken, async (req, res) => {
-  const id = req.params.id;
-  const { rejectionFeedback } = req.body;
-  const result = await productCollection.updateOne(
-    { _id: new ObjectId(id) },
-    {
-      $set: {
-        status: "rejected",
-        rejectionFeedback,
-      },
-    }
-  );
-  res.send(result);
-});
+    // ✅ Reject a product with feedback
+    app.patch("/products/reject/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const { rejectionFeedback } = req.body;
+      const result = await productCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status: "rejected",
+            rejectionFeedback,
+          },
+        }
+      );
+      res.send(result);
+    });
 
     // Advertisement related api
 
@@ -330,7 +330,6 @@ app.patch("/products/reject/:id", verifyToken, async (req, res) => {
     app.delete(
       "/advertisements/:id",
       verifyToken,
-      verifyVendor,
       async (req, res) => {
         const id = req.params.id;
         const result = await advertisementCollection.deleteOne({
@@ -339,6 +338,27 @@ app.patch("/products/reject/:id", verifyToken, async (req, res) => {
         res.send(result);
       }
     );
+
+    // Admin Advertisements
+
+    // ✅ Get all advertisements
+    app.get("/advertisements", async (req, res) => {
+      const ads = await advertisementCollection.find().toArray();
+      res.send(ads);
+    });
+
+    // ✅ Update ad status
+    app.patch("/advertisements/status/:id", async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+
+      const result = await advertisementCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { status } }
+      );
+      res.send(result);
+    });
+
 
     // end
   } catch (err) {
