@@ -51,6 +51,8 @@ async function run() {
     const usersCollection = db.collection("users");
     const productCollection = db.collection("products");
     const advertisementCollection = db.collection("advertisements");
+    const watchlistCollection = db.collection("watchlists");
+    const reviewCollection = db.collection("reviews");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req?.user?.email;
@@ -268,6 +270,50 @@ async function run() {
       res.send(result);
     });
 
+    // WatchList
+    // add watchlist
+    app.post("/watchlist", async (req, res) => {
+      const { userEmail, productId, addedAt } = req.body;
+      try {
+        await watchlistCollection.insertOne({ userEmail, productId, addedAt });
+        res.send({ message: "Added to watchlist" });
+      } catch (err) {
+        res.status(500).send({ error: "Failed to add to watchlist" });
+      }
+    });
+
+    //  Reviews
+
+    app.post("/reviews", async (req, res) => {
+      const { productId, userEmail, userName, rating, comment, createdAt } =
+        req.body;
+
+      // Prevent duplicate review
+      const existing = await reviewCollection.findOne({ productId, userEmail });
+      if (existing) {
+        return res.status(409).send({ error: "Already reviewed" });
+      }
+
+      await reviewCollection.insertOne({
+        productId,
+        userEmail,
+        userName,
+        rating,
+        comment,
+        createdAt,
+      });
+      res.send({ message: "Review submitted" });
+    });
+
+    app.get("/reviews/:productId", async (req, res) => {
+      const { productId } = req.params;
+      const reviews = await reviewCollection
+        .find({ productId })
+        .sort({ createdAt: -1 })
+        .toArray();
+      res.send(reviews);
+    });
+
     // Advertisement related api
 
     // Get all advertisements
@@ -327,17 +373,13 @@ async function run() {
     );
 
     // Delete Advertisement
-    app.delete(
-      "/advertisements/:id",
-      verifyToken,
-      async (req, res) => {
-        const id = req.params.id;
-        const result = await advertisementCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
-        res.send(result);
-      }
-    );
+    app.delete("/advertisements/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await advertisementCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+      res.send(result);
+    });
 
     // Admin Advertisements
 
@@ -358,7 +400,6 @@ async function run() {
       );
       res.send(result);
     });
-
 
     // end
   } catch (err) {
