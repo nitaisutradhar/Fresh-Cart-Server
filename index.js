@@ -271,15 +271,24 @@ async function run() {
     });
 
     // WatchList
-    // add watchlist
+
+    // Check if product is already in watchlist
+    app.get("/watchlist/check", async (req, res) => {
+      const { productId, userEmail } = req.query;
+      const exists = await watchlistCollection.findOne({ productId, userEmail });
+      res.send({ exists: !!exists });
+    });
+   // Add to watchlist
     app.post("/watchlist", async (req, res) => {
-      const { userEmail, productId, addedAt } = req.body;
-      try {
-        await watchlistCollection.insertOne({ userEmail, productId, addedAt });
-        res.send({ message: "Added to watchlist" });
-      } catch (err) {
-        res.status(500).send({ error: "Failed to add to watchlist" });
+      const { productId, userEmail, addedAt } = req.body;
+
+      const already = await watchlistCollection.findOne({ productId, userEmail });
+      if (already) {
+        return res.status(409).send({ message: "Already in watchlist" });
       }
+
+      await watchlistCollection.insertOne({ productId, userEmail, addedAt });
+      res.send({ message: "Added to watchlist" });
     });
 
     //  Reviews
