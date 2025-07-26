@@ -4,7 +4,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
-const stripe = require('stripe')(process.env.STRIPE_SK_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SK_KEY);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -55,7 +55,7 @@ async function run() {
     const advertisementCollection = db.collection("advertisements");
     const watchlistCollection = db.collection("watchlists");
     const reviewCollection = db.collection("reviews");
-    const ordersCollection = db.collection("orders")
+    const ordersCollection = db.collection("orders");
 
     const verifyAdmin = async (req, res, next) => {
       const email = req?.user?.email;
@@ -275,23 +275,55 @@ async function run() {
 
     // WatchList
 
+    // get watchlist
+    app.get("/watchlist", verifyToken, async (req, res) => {
+      const { email } = req.query;
+      if (!email) {
+        return res.status(400).send({ message: "User email is required" });
+      }
+
+      const result = await watchlistCollection.find({ userEmail: email }).toArray();
+      res.send(result);
+    });
+
     // Check if product is already in watchlist
     app.get("/watchlist/check", async (req, res) => {
       const { productId, userEmail } = req.query;
-      const exists = await watchlistCollection.findOne({ productId, userEmail });
+      const exists = await watchlistCollection.findOne({
+        productId,
+        userEmail,
+      });
       res.send({ exists: !!exists });
     });
-   // Add to watchlist
-    app.post("/watchlist", async (req, res) => {
-      const { productId, userEmail, addedAt } = req.body;
+    // Add to watchlist
+    app.post("/watchlist", verifyToken, async (req, res) => {
+      const { productId, userEmail, productName, marketName, addedAt } =
+        req.body;
 
-      const already = await watchlistCollection.findOne({ productId, userEmail });
+      const already = await watchlistCollection.findOne({
+        productId,
+        userEmail,
+      });
       if (already) {
         return res.status(409).send({ message: "Already in watchlist" });
       }
 
-      await watchlistCollection.insertOne({ productId, userEmail, addedAt });
+      await watchlistCollection.insertOne({
+        productId,
+        userEmail,
+        productName,
+        marketName,
+        addedAt,
+      });
       res.send({ message: "Added to watchlist" });
+    });
+
+    //Remove Watchlist Item
+    app.delete("/watchlist/:id", async (req, res) => {
+      const result = await watchlistCollection.deleteOne({
+        _id: new ObjectId(req.params.id),
+      });
+      res.send(result);
     });
 
     //  Reviews
@@ -415,54 +447,59 @@ async function run() {
 
     // Stripe Payment related api
 
-     // create payment intent for order
-    app.post('/create-payment-intent', async (req, res) => {
-      const { productId, quantity } = req.body
+    // create payment intent for order
+    app.post("/create-payment-intent", async (req, res) => {
+      const { productId, quantity } = req.body;
       const product = await productCollection.findOne({
         _id: new ObjectId(productId),
-      })
-      if (!product) return res.status(404).send({ message: 'Product Not Found' })
-      const totalPrice = quantity * product?.price * 100
+      });
+      if (!product)
+        return res.status(404).send({ message: "Product Not Found" });
+      const totalPrice = quantity * product?.price * 100;
       // stripe...
       const { client_secret } = await stripe.paymentIntents.create({
         amount: totalPrice,
-        currency: 'usd',
+        currency: "usd",
         automatic_payment_methods: {
           enabled: true,
         },
-      })
+      });
 
-      res.send({ clientSecret: client_secret })
-    })
-     // save order data in orders collection in db
-    app.post('/order', async (req, res) => {
-      const orderData = req.body
-      const result = await ordersCollection.insertOne(orderData)
-      res.send(result)
-    })
+      res.send({ clientSecret: client_secret });
+    });
+    // save order data in orders collection in db
+    app.post("/order", async (req, res) => {
+      const orderData = req.body;
+      const result = await ordersCollection.insertOne(orderData);
+      res.send(result);
+    });
     // ✅ Get all orders (admin only or protected route)
-app.get("/orders",verifyToken, async (req, res) => {
-  try {
-    const orders = await ordersCollection.find().sort({ _id: -1 }).toArray();
-    res.send(orders);
-  } catch (err) {
-    res.status(500).send({ message: "Failed to fetch orders", error: err });
-  }
-});
-// Get all orders of the currently logged-in user
-app.get("/orders/user/:email",verifyToken, async (req, res) => {
-  try {
-    const email = req.params.email;
-    const orders = await ordersCollection.find({ "customer.email": email })
-      .sort({ _id: -1 })
-      .toArray();
-    res.send(orders);
-  } catch (err) {
-    res.status(500).send({ message: "Failed to fetch user orders", error: err });
-  }
-});
-
-
+    app.get("/orders", verifyToken, async (req, res) => {
+      try {
+        const orders = await ordersCollection
+          .find()
+          .sort({ _id: -1 })
+          .toArray();
+        res.send(orders);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch orders", error: err });
+      }
+    });
+    // Get all orders of the currently logged-in user
+    app.get("/orders/user/:email", verifyToken, async (req, res) => {
+      try {
+        const email = req.params.email;
+        const orders = await ordersCollection
+          .find({ "customer.email": email })
+          .sort({ _id: -1 })
+          .toArray();
+        res.send(orders);
+      } catch (err) {
+        res
+          .status(500)
+          .send({ message: "Failed to fetch user orders", error: err });
+      }
+    });
 
     // end
   } catch (err) {
