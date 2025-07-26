@@ -4,6 +4,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
+const stripe = require('stripe')(process.env.STRIPE_SK_KEY)
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -53,6 +55,7 @@ async function run() {
     const advertisementCollection = db.collection("advertisements");
     const watchlistCollection = db.collection("watchlists");
     const reviewCollection = db.collection("reviews");
+    const ordersCollection = db.collection("orders")
 
     const verifyAdmin = async (req, res, next) => {
       const email = req?.user?.email;
@@ -409,6 +412,34 @@ async function run() {
       );
       res.send(result);
     });
+
+    // Stripe Payment related api
+
+     // create payment intent for order
+    app.post('/create-payment-intent', async (req, res) => {
+      const { productId, quantity } = req.body
+      const product = await productCollection.findOne({
+        _id: new ObjectId(productId),
+      })
+      if (!product) return res.status(404).send({ message: 'Product Not Found' })
+      const totalPrice = quantity * product?.price * 100
+      // stripe...
+      const { client_secret } = await stripe.paymentIntents.create({
+        amount: totalPrice,
+        currency: 'usd',
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      })
+
+      res.send({ clientSecret: client_secret })
+    })
+     // save order data in orders collection in db
+    app.post('/order', async (req, res) => {
+      const orderData = req.body
+      const result = await ordersCollection.insertOne(orderData)
+      res.send(result)
+    })
 
     // end
   } catch (err) {
