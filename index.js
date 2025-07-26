@@ -449,6 +449,19 @@ app.get("/orders",verifyToken, async (req, res) => {
     res.status(500).send({ message: "Failed to fetch orders", error: err });
   }
 });
+// Get all orders of the currently logged-in user
+app.get("/orders/user/:email",verifyToken, async (req, res) => {
+  try {
+    const email = req.params.email;
+    const orders = await ordersCollection.find({ "customer.email": email })
+      .sort({ _id: -1 })
+      .toArray();
+    res.send(orders);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch user orders", error: err });
+  }
+});
+
 
 
     // end
