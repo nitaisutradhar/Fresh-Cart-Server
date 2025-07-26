@@ -440,6 +440,16 @@ async function run() {
       const result = await ordersCollection.insertOne(orderData)
       res.send(result)
     })
+    // ✅ Get all orders (admin only or protected route)
+app.get("/orders",verifyToken, async (req, res) => {
+  try {
+    const orders = await ordersCollection.find().sort({ _id: -1 }).toArray();
+    res.send(orders);
+  } catch (err) {
+    res.status(500).send({ message: "Failed to fetch orders", error: err });
+  }
+});
+
 
     // end
   } catch (err) {
