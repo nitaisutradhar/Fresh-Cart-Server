@@ -194,44 +194,72 @@ async function run() {
     });
 
     // GET /products/public
-    app.get("/all-products", async (req, res) => {
-      const { sort, startDate, endDate } = req.query;
-      const query = {};
+   app.get("/all-products", async (req, res) => {
+  try {
+    const { sort, startDate, endDate, page = 1, limit = 6 } = req.query;
 
-      // ✅ Proper Date filtering
-      if (startDate && endDate) {
-        query.date = {
-          $gte: new Date(startDate).toISOString(),
-          $lte: new Date(endDate).toISOString(),
-        };
-      }
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const skip = (pageNum - 1) * limitNum;
 
-      // ✅ Sorting logic (convert price to number)
-      const sortStage =
-        sort === "lowToHigh"
-          ? { $sort: { convertedPrice: 1 } }
-          : sort === "highToLow"
-          ? { $sort: { convertedPrice: -1 } }
-          : { $sort: { date: -1 } }; // default latest
+    const query = {};
 
-      const pipeline = [
-        { $match: query },
-        {
-          $addFields: {
-            convertedPrice: { $toDouble: "$price" },
-          },
-        },
-        sortStage,
-        {
-          $project: {
-            convertedPrice: 0,
-          },
-        },
-      ];
+    // ✅ Date Range Filter
+    if (startDate && endDate) {
+      query.date = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate),
+      };
+    }
 
-      const products = await productCollection.aggregate(pipeline).toArray();
-      res.send(products);
-    });
+    // ✅ Base match stage
+    const matchStage = { $match: query };
+
+    // ✅ Convert price to number
+    const addFieldsStage = {
+      $addFields: {
+        convertedPrice: { $toDouble: "$price" },
+      },
+    };
+
+    // ✅ Sorting logic
+    const sortStage =
+      sort === "lowToHigh"
+        ? { $sort: { convertedPrice: 1 } }
+        : sort === "highToLow"
+        ? { $sort: { convertedPrice: -1 } }
+        : { $sort: { date: -1 } }; // default: latest
+
+    // ✅ Project stage
+    const projectStage = {
+      $project: {
+        convertedPrice: 0,
+      },
+    };
+
+    // ✅ Count total docs for pagination
+    const totalDocs = await productCollection.countDocuments(query);
+    const totalPages = Math.ceil(totalDocs / limitNum);
+
+    // ✅ Final aggregation pipeline
+    const pipeline = [
+      matchStage,
+      addFieldsStage,
+      sortStage,
+      projectStage,
+      { $skip: skip },
+      { $limit: limitNum },
+    ];
+
+    const products = await productCollection.aggregate(pipeline).toArray();
+
+    res.send({ products, totalPages });
+  } catch (error) {
+    console.error("❌ Failed to fetch products:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
 
     // 📌 Get all products with historical prices (users)
     app.get("/price-trends", async (req, res) => {
@@ -298,7 +326,7 @@ async function run() {
     // Products by admin
 
     // ✅ Get all products
-    app.get("/all-products", async (req, res) => {
+    app.get("/all-products", verifyToken, async (req, res) => {
       const products = await productCollection.find().toArray();
       res.send(products);
     });
