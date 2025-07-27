@@ -62,7 +62,6 @@ async function run() {
       const user = await usersCollection.findOne({
         email,
       });
-      console.log(user?.role);
       if (!user || user?.role !== "admin")
         return res
           .status(403)
@@ -233,6 +232,19 @@ async function run() {
       const products = await productCollection.aggregate(pipeline).toArray();
       res.send(products);
     });
+
+    // 📌 Get all products with historical prices (users)
+app.get('/price-trends', async (req, res) => {
+  try {
+    const products = await productCollection
+      .find({ status: "approved" }, { projection: { itemName: 1, prices: 1, marketName: 1, vendorName: 1 } })
+      .toArray();
+    res.send(products);
+  } catch (err) {
+    res.status(500).send({ error: "Failed to load price trends" });
+  }
+});
+
 
     // Products by admin
 
@@ -468,7 +480,7 @@ async function run() {
       res.send({ clientSecret: client_secret });
     });
     // save order data in orders collection in db
-    app.post("/order", async (req, res) => {
+    app.post("/order", verifyToken, async (req, res) => {
       const orderData = req.body;
       const result = await ordersCollection.insertOne(orderData);
       res.send(result);
