@@ -326,7 +326,7 @@ async function run() {
     // Products by admin
 
     // ✅ Get all products
-    app.get("/all-products", verifyToken, async (req, res) => {
+    app.get("/all-admin-products", verifyToken, async (req, res) => {
       const products = await productCollection.find().toArray();
       res.send(products);
     });
