@@ -234,17 +234,66 @@ async function run() {
     });
 
     // 📌 Get all products with historical prices (users)
-app.get('/price-trends', async (req, res) => {
-  try {
-    const products = await productCollection
-      .find({ status: "approved" }, { projection: { itemName: 1, prices: 1, marketName: 1, vendorName: 1 } })
-      .toArray();
-    res.send(products);
-  } catch (err) {
-    res.status(500).send({ error: "Failed to load price trends" });
-  }
-});
+    app.get("/price-trends", async (req, res) => {
+      try {
+        const products = await productCollection
+          .find(
+            { status: "approved" },
+            {
+              projection: {
+                itemName: 1,
+                prices: 1,
+                marketName: 1,
+                vendorName: 1,
+              },
+            }
+          )
+          .toArray();
+        res.send(products);
+      } catch (err) {
+        res.status(500).send({ error: "Failed to load price trends" });
+      }
+    });
+    // 📦 Get recent approved products with limit (home page)
+    app.get("/products-summary", async (req, res) => {
+      try {
+        const pipeline = [
+          {
+            $match: { status: "approved" },
+          },
+          {
+            $sort: { date: -1 }, // Sort newest first
+          },
+          {
+            $group: {
+              _id: "$marketName", // Group by market name
+              product: { $first: "$$ROOT" }, // Take the latest product per market
+            },
+          },
+          {
+            $replaceRoot: { newRoot: "$product" }, // Flatten the result
+          },
+          {
+            $project: {
+              image: 1,
+              marketName: 1,
+              date: 1,
+              price: 1,
+              itemName: 1,
+            },
+          },
+          {
+            $limit: 6, // Limit to 6 distinct market products
+          },
+        ];
 
+        const products = await productCollection.aggregate(pipeline).toArray();
+        res.send(products);
+      } catch (err) {
+        console.error("Summary fetch failed:", err);
+        res.status(500).send({ error: "Failed to load product summaries." });
+      }
+    });
 
     // Products by admin
 
@@ -294,7 +343,9 @@ app.get('/price-trends', async (req, res) => {
         return res.status(400).send({ message: "User email is required" });
       }
 
-      const result = await watchlistCollection.find({ userEmail: email }).toArray();
+      const result = await watchlistCollection
+        .find({ userEmail: email })
+        .toArray();
       res.send(result);
     });
 
@@ -374,7 +425,9 @@ app.get('/price-trends', async (req, res) => {
 
     // Get all advertisements
     app.get("/all-advertisements", async (req, res) => {
-      const result = await advertisementCollection.find().toArray();
+      const result = await advertisementCollection
+        .find({ status: "approved" })
+        .toArray();
       res.send(result);
     });
 
