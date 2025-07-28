@@ -207,8 +207,8 @@ async function run() {
     // ✅ Date Range Filter
     if (startDate && endDate) {
       query.date = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
+        $gte: new Date(startDate).toISOString(),
+        $lte: new Date(endDate).toISOString(),
       };
     }
 
@@ -259,7 +259,47 @@ async function run() {
     res.status(500).send({ error: "Internal Server Error" });
   }
 });
+// get all products without pagination,but with sorting, and date filtering
+    // app.get("/all-products", async (req, res) => {
+    //   const { sort, startDate, endDate } = req.query;
 
+    //   const query = {};
+
+    //   // ✅ Proper Date filtering
+    //   if (startDate && endDate) {
+    //     query.date = {
+    //       $gte: new Date(startDate).toISOString(),
+    //       $lte: new Date(endDate).toISOString(),
+    //     };
+    //   }
+
+    //   // ✅ Sorting logic (convert price to number)
+    //   const sortStage =
+    //     sort === "lowToHigh"
+    //       ? { $sort: { convertedPrice: 1 } }
+    //       : sort === "highToLow"
+    //       ? { $sort: { convertedPrice: -1 } }
+    //       : { $sort: { date: -1 } }; // default latest
+      
+    //       const pipeline = [
+    //         { $match: query },
+    //         {
+    //           $addFields: {
+    //             convertedPrice: { $toDouble: "$price" },
+    //           },
+    //         },
+    //         sortStage,
+    //         {
+    //           $project: {
+    //             convertedPrice: 0,
+    //           },
+    //         },
+    //       ];
+    //   const products = await productCollection.aggregate(pipeline).toArray();
+    //   console.log("Products fetched:", products.length);
+    //   res.send(products);
+          
+    // })
 
     // 📌 Get all products with historical prices (users)
     app.get("/price-trends", async (req, res) => {
