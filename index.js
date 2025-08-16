@@ -132,6 +132,19 @@ async function run() {
       res.send(users);
     });
 
+    // get a user by email
+    app.get("/user-profile", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        return res.status(400).send({ message: "Email is required" });
+      }
+      console.log("Fetching user profile for email:", email);
+      // Find user by email
+      const user = await usersCollection.findOne({ email });
+      if (!user) return res.status(404).send({ message: "User Not Found." });
+      res.send(user);
+    });
+
     // Update User Role
     app.patch("/users/:id/role", async (req, res) => {
       const { id } = req.params;
